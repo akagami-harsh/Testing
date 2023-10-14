@@ -1,10 +1,6 @@
 name: PR Label Check
 
-on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
+on: [push, pull_request]
 
 jobs:
   label_check:
