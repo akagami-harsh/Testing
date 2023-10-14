@@ -1,6 +1,8 @@
 name: PR Label Check
 
-on: [push, pull_request]
+on:
+  pull_request:
+    branches: [main]
 
 jobs:
   label_check:
