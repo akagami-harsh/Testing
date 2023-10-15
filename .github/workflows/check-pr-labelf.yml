@@ -15,24 +15,22 @@ jobs:
         id: title_check
         run: |
           title=$(echo "${{ github.event.pull_request.title }}" | tr '[:upper:]' '[:lower:]')
+          prValidation=true
           if [[ ! $title =~ (fix|feature|feat|docs|style) ]]; then
-            echo "Error: PR title must contain one of the following categories: fix, feature, feat, docs, style."
-            exit 1
+            prValidation=false
+            
           fi
 
-      - name: Comment on PR
-        if: failure()
-        run: |
-          comment_body="This pull request title does not follow the required categorization. It must contain one of the following categories: fix, feature, feat, docs, style."
-          echo "::set-output name=comment::$comment_body"
-
       - name: Create Comment
-        if: steps.comment_on_pr.outputs.comment
+        if: prValidation=false
         uses: actions/github-script@v5
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            const comment = context.outputs.comment;
+            const comment = `
+            this will execute if pr dose not have any title
+
+            `;
             github.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
