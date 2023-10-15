@@ -1,4 +1,4 @@
-name: Label Checker
+name: Verify PR Title
 
 on:
   pull_request:
@@ -7,55 +7,35 @@ on:
       - synchronize
 
 jobs:
-  label_checker:
+  verify_pr:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '14'
-
-      - name: Install dependencies
-        run: npm install @octokit/rest
-
-      - name: Run Label Checker
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check PR Title
+        id: title_check
         run: |
-          const core = require('@actions/core');
-          const github = require('@actions/github');
-          const { Octokit } = require('@octokit/rest');
+          title=$(echo "${{ github.event.pull_request.title }}" | tr '[:upper:]' '[:lower:]')
+          if [[ ! $title =~ (fix|feature|feat|docs|style) ]]; then
+            echo "Error: PR title must contain one of the following categories: fix, feature, feat, docs, style."
+            exit 1
+          fi
 
-          async function commentOnPullRequest() {
-            try {
-              const token = core.getInput('github-token');
-              const octokit = new Octokit({ auth: token });
+      - name: Comment on PR
+        if: failure()
+        run: |
+          comment_body="This pull request title does not follow the required categorization. It must contain one of the following categories: fix, feature, feat, docs, style."
+          echo "::set-output name=comment::$comment_body"
 
-              const requiredLabels = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"];
-              const labels = github.context.payload.pull_request.labels.map(label => label.name);
-              const missingLabels = requiredLabels.filter(label => !labels.includes(label));
-
-              const prNumber = github.context.payload.pull_request.number;
-              const repoOwner = github.context.repo.owner;
-              const repoName = github.context.repo.repo;
-              const commentBody = 'Thank you for opening this pull request! We will review it soon.';
-
-              if (missingLabels.length > 0) {
-                await octokit.issues.createComment({
-                  owner: repoOwner,
-                  repo: repoName,
-                  issue_number: prNumber,
-                  body: commentBody
-                });
-              }
-            } catch (error) {
-              core.setFailed(error.message);
-            }
-          }
-
-          commentOnPullRequest();
-        
+      - name: Create Comment
+        if: steps.comment_on_pr.outputs.comment
+        uses: actions/github-script@v5
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const comment = context.outputs.comment;
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            })
