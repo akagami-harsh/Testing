@@ -12,17 +12,19 @@ jobs:
 
     steps:
       - name: Check PR Title
+        env:
+          LABEL_VALIDATION=true
         id: title_check
         run: |
           title=$(echo "${{ github.event.pull_request.title }}" | tr '[:upper:]' '[:lower:]')
           prValidation=true
           if [[ ! $title =~ (fix|feature|feat|docs|style) ]]; then
-            prValidation=false
+            LABEL_VALIDATION  "::set-output name=LABEL_VALIDATION::false"
             
           fi
 
       - name: Create Comment
-        if: prValidation=false
+        if: LABEL_VALIDATION==false
         uses: actions/github-script@v5
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
