@@ -1,23 +1,42 @@
-name: PR Label Check
+name: Verify Categorization Labels
 
 on:
   pull_request:
-    branches: [main]
+    types:
+      - opened
+      - synchronize
 
 jobs:
-  label_check:
+  verify_labels:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check for Labels
-        uses: actions/github-script@v6
+      - name: Check PR for Required Labels
+        id: label_check
+        uses: actions/github-script@v5
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const requiredLabels = ["feat", "fix", "docs", "style", "refractor", "perf", "test", "build", "ci", "chore", "revert"];
-            const labels = context.payload.pull_request.labels.map(label => label.name);
-            const missingLabels = requiredLabels.filter(label => !labels.includes(label));
+            const requiredLabels = ['fix', 'feat', 'docs', 'style'];
+            const pr = await github.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
 
-            if (labels.length == 0) {
-              core.setFailed(`Missing required labels`);
+            const prLabels = pr.data.labels.map(label => label.name);
+
+            if (requiredLabels.every(label => prLabels.includes(label))) {
+              core.setOutput('labels_valid', 'true');
+            } else {
+              core.setOutput('labels_valid', 'false');
             }
+
+      - name: Comment on PR
+        if: steps.label_check.outputs.labels_valid == 'false'
+        run: |
+          echo "This pull request is missing labels (fix, feat, docs, style). Please add the necessary labels before merging." | gh issue comment ${GITHUB_REPOSITORY}#${{ github.event.pull_request.number }}
+
+      - name: PR is Ready to Merge
+        if: steps.label_check.outputs.labels_valid == 'true'
+        run: echo "All required labels are present, and the PR is ready to merge."
+
