@@ -1,4 +1,4 @@
-name: Verify Categorization Labels
+name: Label Checker
 
 on:
   pull_request:
@@ -7,36 +7,55 @@ on:
       - synchronize
 
 jobs:
-  verify_labels:
+  label_checker:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check PR for Required Labels
-        id: label_check
-        uses: actions/github-script@v5
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
         with:
-          script: |
-            const requiredLabels = ['fix', 'feat', 'docs', 'style'];
-            const pr = await github.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
-            });
+          node-version: '14'
 
-            const prLabels = pr.data.labels.map(label => label.name);
+      - name: Install dependencies
+        run: npm install @octokit/rest
 
-            if (requiredLabels.every(label => prLabels.includes(label))) {
-              core.setOutput('labels_valid', 'true');
-            } else {
-              core.setOutput('labels_valid', 'false');
-            }
-
-      - name: Comment on PR
-        if: steps.label_check.outputs.labels_valid == 'false'
+      - name: Run Label Checker
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "This pull request is missing labels (fix, feat, docs, style). Please add the necessary labels before merging." | gh issue comment ${GITHUB_REPOSITORY}#${{ github.event.pull_request.number }}
+          const core = require('@actions/core');
+          const github = require('@actions/github');
+          const { Octokit } = require('@octokit/rest');
 
-      - name: PR is Ready to Merge
-        if: steps.label_check.outputs.labels_valid == 'true'
-        run: echo "All required labels are present, and the PR is ready to merge."
+          async function commentOnPullRequest() {
+            try {
+              const token = core.getInput('github-token');
+              const octokit = new Octokit({ auth: token });
 
+              const requiredLabels = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"];
+              const labels = github.context.payload.pull_request.labels.map(label => label.name);
+              const missingLabels = requiredLabels.filter(label => !labels.includes(label));
+
+              const prNumber = github.context.payload.pull_request.number;
+              const repoOwner = github.context.repo.owner;
+              const repoName = github.context.repo.repo;
+              const commentBody = 'Thank you for opening this pull request! We will review it soon.';
+
+              if (missingLabels.length > 0) {
+                await octokit.issues.createComment({
+                  owner: repoOwner,
+                  repo: repoName,
+                  issue_number: prNumber,
+                  body: commentBody
+                });
+              }
+            } catch (error) {
+              core.setFailed(error.message);
+            }
+          }
+
+          commentOnPullRequest();
+        
