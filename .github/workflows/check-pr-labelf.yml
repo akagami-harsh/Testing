@@ -10,28 +10,26 @@ jobs:
   verify_pr:
     runs-on: ubuntu-latest
 
+    env:
+      LABEL_VALIDATION: true
+
     steps:
       - name: Check PR Title
-        env:
-          LABEL_VALIDATION=true
         id: title_check
         run: |
           title=$(echo "${{ github.event.pull_request.title }}" | tr '[:upper:]' '[:lower:]')
-          prValidation=true
           if [[ ! $title =~ (fix|feature|feat|docs|style) ]]; then
-            LABEL_VALIDATION  "::set-output name=LABEL_VALIDATION::false"
-            
+            echo "::set-output name=LABEL_VALIDATION::false"
           fi
 
       - name: Create Comment
-        if: LABEL_VALIDATION==false
+        if: steps.title_check.outputs.LABEL_VALIDATION == 'false'
         uses: actions/github-script@v5
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             const comment = `
-            this will execute if pr dose not have any title
-
+            This will execute if the PR title is invalid.
             `;
             github.issues.createComment({
               issue_number: context.issue.number,
