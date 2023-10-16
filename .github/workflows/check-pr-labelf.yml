@@ -9,11 +9,10 @@ on:
 jobs:
   verify_pr:
     runs-on: ubuntu-latest
-
+    env:
+      LABEL_VALIDATION: true
     steps:
       - name: Check PR Title
-        env:
-          LABEL_VALIDATION: true
         id: title_check
         run: |
           title=$(echo "${{ github.event.pull_request.title }}" | tr '[:upper:]' '[:lower:]')
@@ -26,7 +25,7 @@ jobs:
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: pr-title-lint-error
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           message: |
             this dosent have any lable in title
 
@@ -35,4 +34,4 @@ jobs:
         with:
           header: check-pr-title
           delete: true 
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN}}   
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
