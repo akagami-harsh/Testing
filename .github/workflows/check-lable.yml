@@ -1,4 +1,4 @@
-name: Verify PR Title
+name: Verify PR Label
 
 on:
   pull_request:
